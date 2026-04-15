@@ -1,0 +1,62 @@
+# ===== Qt 构建产物 =====
+build/
+build-*/
+release/
+debug/
+*.pro.user
+*.pro.user.*
+*.qbs.user
+*.qbs.user.*
+*.user.*
+.qmake.cache
+.qmake.stash
+*.obj
+*.o
+*.exe
+*.dll
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.manifest
+
+# Qt Creator 临时文件
+.qtc_clangd/
+.clangd/
+
+# CMake（如果迁移到 CMake）
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# ===== SpatialMind 敏感文件 =====
+# prompt.json 含有 system prompt 和 API 配置，不上传
+promptProject/prompt.json
+
+# 本地运行时数据（AppData 里的，不在项目目录，仅防误操作）
+sql_cache.json
+query_history.json
+
+# ===== 操作系统文件 =====
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ===== 编辑器 =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== 其他 =====
+*.log
+*.tmp

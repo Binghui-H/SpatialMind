@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<link href="qrc:/web/maplibre-gl.css" rel="stylesheet">
+<script src="qrc:/web/maplibre-gl.js"></script>
+<script src="qwebchannel.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body, #map { width: 100%; height: 100vh; overflow: hidden; font-family: -apple-system, "Segoe UI", sans-serif; }
+
+  /* ── 状态徽章 ── */
+  #status-badge {
+    position: absolute; top: 14px; left: 14px; z-index: 20;
+    display: flex; align-items: center; gap: 7px;
+    background: rgba(255,255,255,0.92); backdrop-filter: blur(6px);
+    border: 0.5px solid rgba(0,0,0,0.12); border-radius: 20px;
+    padding: 5px 12px 5px 9px;
+    font-size: 12px; color: #444; pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  #status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #bbb; flex-shrink: 0;
+    transition: background 0.4s;
+  }
+  #status-dot.ready   { background: #34c759; }
+  #status-dot.loading { background: #f5a623; animation: pulse 1s infinite; }
+  #status-dot.error   { background: #ff3b30; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ── 结果信息卡 ── */
+  #result-card {
+    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+    z-index: 20;
+    background: rgba(255,255,255,0.94); backdrop-filter: blur(8px);
+    border: 0.5px solid rgba(0,0,0,0.12); border-radius: 12px;
+    padding: 10px 18px; min-width: 220px; max-width: 480px;
+    display: none; align-items: center; gap: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp { from{opacity:0;transform:translateX(-50%) translateY(8px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+  #result-card.show { display: flex; }
+  #result-count {
+    font-size: 22px; font-weight: 600; color: #1a73e8; flex-shrink: 0; line-height: 1;
+  }
+  #result-desc { font-size: 13px; color: #555; line-height: 1.4; }
+  #result-clear {
+    margin-left: auto; flex-shrink: 0;
+    width: 22px; height: 22px; border-radius: 50%;
+    border: none; background: rgba(0,0,0,0.07);
+    cursor: pointer; font-size: 14px; color: #666;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  #result-clear:hover { background: rgba(0,0,0,0.14); }
+
+  /* ── 要素弹窗 ── */
+  #feature-popup {
+    position: absolute; z-index: 30;
+    background: rgba(255,255,255,0.96); backdrop-filter: blur(6px);
+    border: 0.5px solid rgba(0,0,0,0.12); border-radius: 10px;
+    padding: 10px 14px; min-width: 160px; max-width: 280px;
+    font-size: 13px; color: #333;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    display: none; pointer-events: none;
+  }
+  #feature-popup.show { display: block; }
+  #feature-popup .fp-name { font-weight: 500; font-size: 14px; margin-bottom: 4px; }
+  #feature-popup .fp-row  { color: #777; font-size: 12px; margin-top: 2px; }
+  #feature-popup .fp-row span { color: #444; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="status-badge">
+  <div id="status-dot"></div>
+  <span id="status-text">初始化中</span>
+</div>
+
+<div id="result-card">
+  <div id="result-count">0</div>
+  <div id="result-desc">查询结果</div>
+  <button id="result-clear" title="清除图层">✕</button>
+</div>
+
+<div id="feature-popup">
+  <div class="fp-name" id="fp-name">—</div>
+  <div class="fp-row">类型：<span id="fp-type">—</span></div>
+  <div class="fp-row" id="fp-extra"></div>
+</div>
+
+<script>
+const TIAN_KEY = "22a9a8876b034ba487cd6939ed211193";
+
+const map = new maplibregl.Map({
+  container: 'map',
+  style: {
+    version: 8,
+    glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+    sources: {
+      tianditu_vec: {
+        type: 'raster',
+        tiles: [
+          `https://t0.tianditu.gov.cn/vec_w/wmts?SERVICE=WMTS&REQUEST=GetTile`
+          + `&VERSION=1.0.0&LAYER=vec&STYLE=default&TILEMATRIXSET=w`
+          + `&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${TIAN_KEY}`
+        ],
+        tileSize: 256, attribution: '© 天地图'
+      },
+      tianditu_cva: {
+        type: 'raster',
+        tiles: [
+          `https://t0.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile`
+          + `&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w`
+          + `&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${TIAN_KEY}`
+        ],
+        tileSize: 256
+      }
+    },
+    layers: [
+      { id: 'vec', type: 'raster', source: 'tianditu_vec' },
+      { id: 'cva', type: 'raster', source: 'tianditu_cva' }
+    ]
+  },
+  center: [117.19, 39.12],
+  zoom: 11
+});
+
+// ── UI 控件引用 ──────────────────────────────────────────────────────────────
+const dotEl    = document.getElementById('status-dot');
+const textEl   = document.getElementById('status-text');
+const card     = document.getElementById('result-card');
+const cardCnt  = document.getElementById('result-count');
+const cardDesc = document.getElementById('result-desc');
+const popup    = document.getElementById('feature-popup');
+
+function setStatus(state, msg) {
+  dotEl.className = state;   // ready | loading | error | ""
+  textEl.textContent = msg;
+}
+
+// ── 清除按钮 ─────────────────────────────────────────────────────────────────
+document.getElementById('result-clear').addEventListener('click', () => {
+  clearLayers();
+  card.classList.remove('show');
+  popup.classList.remove('show');
+});
+
+// ── QWebChannel 初始化 ────────────────────────────────────────────────────────
+let bridge = null;
+function initChannel() {
+  new QWebChannel(qt.webChannelTransport, function(channel) {
+    bridge = channel.objects.mapBridge;
+    bridge.pushToMap.connect(handleFromCpp);
+    bridge.notifyMapReady();
+    setStatus('ready', '地图就绪');
+  });
+}
+
+// ── 接收 C++ 消息 ─────────────────────────────────────────────────────────────
+function handleFromCpp(jsonStr) {
+  const msg = JSON.parse(jsonStr);
+  if (msg.type === 'highlight') showFeatures(msg.geojson, msg.desc);
+  if (msg.type === 'fly')       map.flyTo({ center: msg.center, zoom: msg.zoom });
+  if (msg.type === 'clear')     clearLayers();
+}
+
+// ── 图层管理 ──────────────────────────────────────────────────────────────────
+let layerIds   = [];
+let sourceIds  = [];
+
+function clearLayers() {
+  layerIds.forEach(id  => { if (map.getLayer(id))   map.removeLayer(id);  });
+  sourceIds.forEach(id => { if (map.getSource(id))  map.removeSource(id); });
+  layerIds  = [];
+  sourceIds = [];
+}
+
+function showFeatures(geojsonStr, desc) {
+  clearLayers();
+  popup.classList.remove('show');
+
+  const gj = typeof geojsonStr === 'string' ? JSON.parse(geojsonStr) : geojsonStr;
+  if (!gj || !gj.features || gj.features.length === 0) {
+    setStatus('', '未找到结果');
+    card.classList.remove('show');
+    return;
+  }
+
+  const sid = 'result_src';
+  map.addSource(sid, { type: 'geojson', data: gj });
+  sourceIds.push(sid);
+
+  const geomType = gj.features[0]?.geometry?.type || '';
+  const isPoint  = geomType === 'Point'      || geomType === 'MultiPoint';
+  const isLine   = geomType === 'LineString' || geomType === 'MultiLineString';
+  const isPoly   = geomType === 'Polygon'    || geomType === 'MultiPolygon';
+
+  if (isPoint) {
+    // 光晕 + 点
+    const haloId = 'result_halo';
+    map.addLayer({ id: haloId, type: 'circle', source: sid,
+      paint: { 'circle-radius': 18, 'circle-color': '#1a73e8', 'circle-opacity': 0.12 }
+    });
+    const ptId = 'result_point';
+    map.addLayer({ id: ptId, type: 'circle', source: sid,
+      paint: {
+        'circle-radius': 7,
+        'circle-color': '#1a73e8',
+        'circle-stroke-width': 2,
+        'circle-stroke-color': '#fff'
+      }
+    });
+    layerIds.push(haloId, ptId);
+    addClickInteraction(ptId);
+  }
+
+  if (isLine) {
+    const lineId = 'result_line';
+    map.addLayer({ id: lineId, type: 'line', source: sid,
+      paint: { 'line-color': '#1a73e8', 'line-width': 3, 'line-opacity': 0.85 }
+    });
+    layerIds.push(lineId);
+    addClickInteraction(lineId);
+  }
+
+  if (isPoly) {
+    const fillId   = 'result_fill';
+    const strokeId = 'result_stroke';
+    map.addLayer({ id: fillId, type: 'fill', source: sid,
+      paint: { 'fill-color': '#1a73e8', 'fill-opacity': 0.15 }
+    });
+    map.addLayer({ id: strokeId, type: 'line', source: sid,
+      paint: { 'line-color': '#1a73e8', 'line-width': 2 }
+    });
+    layerIds.push(fillId, strokeId);
+    addClickInteraction(fillId);
+  }
+
+  // 飞到结果范围
+  try {
+    const bounds = new maplibregl.LngLatBounds();
+    gj.features.forEach(f => {
+      collectCoords(f.geometry).forEach(c => bounds.extend(c));
+    });
+    if (!bounds.isEmpty()) {
+      map.fitBounds(bounds, { padding: 60, maxZoom: 16, duration: 800 });
+    }
+  } catch(e) {}
+
+  // 结果卡
+  cardCnt.textContent  = gj.features.length;
+  cardDesc.textContent = desc || '查询结果';
+  card.classList.add('show');
+  setStatus('ready', `共 ${gj.features.length} 个结果`);
+}
+
+// ── 点击交互（弹出属性）─────────────────────────────────────────────────────
+function addClickInteraction(layerId) {
+  map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
+  map.on('click', layerId, (e) => {
+    const f    = e.features?.[0];
+    const props = f?.properties || {};
+
+    document.getElementById('fp-name').textContent = props.name || props.osm_id || '（无名称）';
+    document.getElementById('fp-type').textContent = props.amenity || props.railway || props.landuse || f?.geometry?.type || '—';
+
+    const extra = [];
+    if (props.addr_street) extra.push(`地址：${props.addr_street}`);
+    if (props.opening_hours) extra.push(`营业：${props.opening_hours}`);
+    document.getElementById('fp-extra').innerHTML = extra.join('<br>');
+
+    // 定位弹窗到点击位置
+    const pt = map.project(e.lngLat);
+    popup.style.left = (pt.x + 12) + 'px';
+    popup.style.top  = (pt.y - 12) + 'px';
+    popup.classList.add('show');
+  });
+}
+
+map.on('click', (e) => {
+  // 点在空白处关闭弹窗
+  const layers = layerIds.filter(id => !id.endsWith('_halo') && !id.endsWith('_fill'));
+  const hit = layers.some(id => {
+    try { return map.queryRenderedFeatures(e.point, { layers: [id] }).length > 0; } catch { return false; }
+  });
+  if (!hit) popup.classList.remove('show');
+});
+
+// ── 坐标递归收集（用于 fitBounds）───────────────────────────────────────────
+function collectCoords(geom) {
+  if (!geom) return [];
+  const t = geom.type;
+  if (t === 'Point')           return [geom.coordinates];
+  if (t === 'MultiPoint' || t === 'LineString') return geom.coordinates;
+  if (t === 'MultiLineString' || t === 'Polygon') return geom.coordinates.flat();
+  if (t === 'MultiPolygon')    return geom.coordinates.flat(2);
+  return [];
+}
+
+// ── 等地图加载完再初始化 Channel ─────────────────────────────────────────────
+map.on('load', () => {
+  setStatus('loading', '连接中…');
+  if (typeof qt !== 'undefined') {
+    initChannel();
+  } else {
+    setStatus('error', 'WebChannel 不可用');
+  }
+});
+</script>
+</body>
+</html>

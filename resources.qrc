@@ -1,0 +1,11 @@
+<RCC>
+    <qresource prefix="/">
+        <file>web/map.html</file>
+        <file>web/qwebchannel.js</file>
+        <file>web/style.css</file>
+        <file>web/maplibre-gl.css</file>
+        <file>web/maplibre-gl.js</file>
+        <file>promptProject/prompt.json</file>
+        <file>icon.ico</file>
+    </qresource>
+</RCC>
