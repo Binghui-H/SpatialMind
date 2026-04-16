@@ -7,5 +7,6 @@
         <file>web/maplibre-gl.js</file>
         <file>promptProject/prompt.json</file>
         <file>icon.ico</file>
+        <file>promptProject/system.txt</file>
     </qresource>
 </RCC>

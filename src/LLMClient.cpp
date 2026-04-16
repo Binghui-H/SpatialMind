@@ -12,18 +12,23 @@ LLMClient::LLMClient(QObject *parent) : QObject(parent)
     m_nam = new QNetworkAccessManager(this);
     QNetworkProxy::setApplicationProxy(QNetworkProxy::NoProxy);
 
-    m_apiKey  = qgetenv("DS_API_KEY");
-    m_baseUrl = "https://api.deepseek.com";
-    m_model   = "deepseek-chat";
-
-    QFile f(":/promptProject/prompt.json");
-    qDebug() << "[LLM] prompt.json exists:" << f.exists();
-    if (f.open(QIODevice::ReadOnly)) {
-        QJsonObject cfg = QJsonDocument::fromJson(f.readAll()).object();
-        m_systemPrompt  = cfg.value("system").toString();
-        qDebug() << "[LLM] prompt length:" << m_systemPrompt.length()
-                 << "  api_key length:" << m_apiKey.length();
+    // 加载配置
+    QFile fJson(":/promptProject/prompt.json");
+    if (fJson.open(QIODevice::ReadOnly)) {
+        QJsonObject cfg = QJsonDocument::fromJson(fJson.readAll()).object();
+        m_baseUrl = cfg.value("base_url").toString();
+        m_model   = cfg.value("model").toString();
+        QString keyEnv = cfg.value("api_key_env").toString();
+        m_apiKey  = qgetenv(keyEnv.toUtf8());
     }
+
+    // 单独加载 system prompt
+    QFile fSys(":/promptProject/system.txt");
+    if (fSys.open(QIODevice::ReadOnly))
+        m_systemPrompt = QString::fromUtf8(fSys.readAll());
+
+    qDebug() << "[LLM] prompt length:" << m_systemPrompt.length()
+             << "  api_key length:"    << m_apiKey.length();
 
     connect(m_nam, &QNetworkAccessManager::finished,
             this,  &LLMClient::onReplyFinished);

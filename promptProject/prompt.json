@@ -1,0 +1,7 @@
+{
+  "version": "1.1",
+  "base_url": "https://api.deepseek.com",
+  "model": "deepseek-chat",
+  "api_key_env": "DS_API_KEY"
+}
+
