@@ -32,7 +32,7 @@ Makefile
 
 # ===== SpatialMind 敏感文件 =====
 # prompt.json 含有 system prompt 和 API 配置，不上传
-promptProject/system.txt
+# promptProject/system.txt
 
 # 本地运行时数据（AppData 里的，不在项目目录，仅防误操作）
 sql_cache.json

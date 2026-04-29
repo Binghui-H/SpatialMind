@@ -1,7 +1,13 @@
 {
   "version": "1.1",
-  "base_url": "https://api.deepseek.com",
-  "model": "deepseek-chat",
-  "api_key_env": "DS_API_KEY"
+  "ds_base_url": "https://api.deepseek.com",
+  "ds_model": "deepseek-chat",
+  "ds_api_key_env": "DS_API_KEY",
+  "openai3rd_base_url": "https://openclawroot.com/v1",
+  "openai3rd_model": "gpt-5.4",
+  "openai3rd_api_key_env": "OPENAI_API_KEY",
+  "ds3rd_base_url": "https://openclawroot.com/v1",
+  "ds3rd_model": "deepseek-v3.2",
+  "ds3rd_api_key_env": "DS3RD_API_KEY"
 }
 

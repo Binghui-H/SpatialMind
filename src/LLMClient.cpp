@@ -10,15 +10,18 @@
 LLMClient::LLMClient(QObject *parent) : QObject(parent)
 {
     m_nam = new QNetworkAccessManager(this);
-    QNetworkProxy::setApplicationProxy(QNetworkProxy::NoProxy);
+    // QNetworkProxy::setApplicationProxy(QNetworkProxy::NoProxy);
+    QNetworkProxy proxy;
+    proxy.setType(QNetworkProxy::NoProxy);
+    m_nam->setProxy(proxy);
 
     // 加载配置
     QFile fJson(":/promptProject/prompt.json");
     if (fJson.open(QIODevice::ReadOnly)) {
         QJsonObject cfg = QJsonDocument::fromJson(fJson.readAll()).object();
-        m_baseUrl = cfg.value("base_url").toString();
-        m_model   = cfg.value("model").toString();
-        QString keyEnv = cfg.value("api_key_env").toString();
+        m_baseUrl = cfg.value("ds_base_url").toString();
+        m_model   = cfg.value("ds_model").toString();
+        QString keyEnv = cfg.value("ds_api_key_env").toString();
         m_apiKey  = qgetenv(keyEnv.toUtf8());
     }
 

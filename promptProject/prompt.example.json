@@ -3,5 +3,4 @@
   "base_url":    "https://api.deepseek.com",
   "model":       "deepseek-chat",
   "api_key_env": "DS_API_KEY",
-  "system":      "在此填写你的 system prompt"
 }

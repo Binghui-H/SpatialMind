@@ -59,37 +59,7 @@ bool GISEngine::isSafeQuery(const QString &sql) const {
     return true;
 }
 
-QString GISEngine::executeQuery(const QString &sql) {
-    // 安全检查
-    if (!isSafeQuery(sql)) {
-        qWarning() << "[GISEngine] SQL 安全检查拒绝：" << sql.left(80);
-        return R"({"type":"FeatureCollection","features":[],"error":"SQL不安全"})";
-    }
 
-    if (!isConnected()) {
-        return R"({"type":"FeatureCollection","features":[],"error":"数据库未连接"})";
-    }
-
-    QSqlQuery query(m_db);
-    query.setForwardOnly(true); // 提升性能
-
-    if (!query.exec(sql)) {
-        QString err = query.lastError().text();
-        qWarning() << "[GISEngine] SQL 执行错误：" << err;
-        // 把错误信息也返回，方便上层反馈给 LLM 重试
-        return QString(R"({"type":"FeatureCollection","features":[],"error":"%1"})")
-               .arg(err.replace('"','\''));
-    }
-
-    // 期望查询返回单行单列的 GeoJSON 文本
-    if (query.next()) {
-        QString result = query.value(0).toString();
-        if (!result.isEmpty())
-            return result;
-    }
-
-    return R"({"type":"FeatureCollection","features":[]})";
-}
 
 void GISEngine::executeAsync(const QString &sql, std::function<void(const QString&, const QString&)> callback)
 {
